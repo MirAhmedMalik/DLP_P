@@ -3,61 +3,84 @@ import cv2
 import numpy as np
 
 os.makedirs('just_test', exist_ok=True)
-img_size = 64
-color = 255
-thickness = 1
+s = 64
+c = 255
+t = 1
 
 def blank():
-    return np.zeros((img_size, img_size), dtype=np.uint8)
+    return np.zeros((s, s), dtype=np.uint8)
 
-# 1. Line
+def save(name, img):
+    # No artificial blur - keep crisp
+    cv2.imwrite(f'just_test/{name}.png', img)
+
+# --- Individual shapes ---
+img = blank(); cv2.circle(img, (32,32), 18, c, t); save('circle', img)
+img = blank(); cv2.rectangle(img, (10,10), (52,45), c, t); save('rectangle', img)
+img = blank(); cv2.line(img, (8,8), (56,56), c, t); save('line', img)
+img = blank(); cv2.line(img, (8,50), (56,15), c, t); save('line_diagonal2', img)
 img = blank()
-cv2.line(img, (10, 10), (50, 50), color, thickness)
-cv2.imwrite('just_test/line.png', cv2.GaussianBlur(img, (3,3), 0))
-
-# 2. Circle
+cv2.polylines(img, [np.array([[32,6],[6,58],[58,58]])], True, c, t)
+save('triangle', img)
+img = blank(); cv2.ellipse(img, (32,32), (24,10), 0, 0, 360, c, t); save('ellipse_wide', img)
+img = blank(); cv2.ellipse(img, (32,32), (10,22), 45, 0, 360, c, t); save('ellipse_tilted', img)
 img = blank()
-cv2.circle(img, (32, 32), 15, color, thickness)
-cv2.imwrite('just_test/circle.png', cv2.GaussianBlur(img, (3,3), 0))
-
-# 3. Rectangle
+pts = np.array([[32,6],[52,18],[58,42],[42,58],[22,58],[6,42],[12,18]])
+cv2.polylines(img, [pts], True, c, t)
+save('polygon_7sides', img)
 img = blank()
-cv2.rectangle(img, (15, 15), (45, 45), color, thickness)
-cv2.imwrite('just_test/rectangle.png', cv2.GaussianBlur(img, (3,3), 0))
+pts = np.array([[32,6],[55,26],[46,54],[18,54],[9,26]])
+cv2.polylines(img, [pts], True, c, t)
+save('polygon_pentagon', img)
 
-# 4. Triangle
+# --- Multi-shape images ---
 img = blank()
-pts = np.array([[32, 10], [10, 50], [54, 50]], np.int32)
-cv2.polylines(img, [pts], True, color, thickness)
-cv2.imwrite('just_test/triangle.png', cv2.GaussianBlur(img, (3,3), 0))
+cv2.circle(img, (18,18), 10, c, t)
+cv2.rectangle(img, (34,8), (58,30), c, t)
+save('multi_circle_rectangle', img)
 
-# 5. Ellipse
 img = blank()
-cv2.ellipse(img, (32, 32), (20, 10), 45, 0, 360, color, thickness)
-cv2.imwrite('just_test/ellipse.png', cv2.GaussianBlur(img, (3,3), 0))
+cv2.line(img, (5,32), (58,32), c, t)
+cv2.line(img, (32,5), (32,58), c, t)
+save('multi_cross_lines', img)
 
-# 6. Polygon
 img = blank()
-pts = np.array([[20, 10], [40, 10], [50, 30], [30, 50], [10, 30]], np.int32)
-cv2.polylines(img, [pts], True, color, thickness)
-cv2.imwrite('just_test/polygon.png', cv2.GaussianBlur(img, (3,3), 0))
+cv2.circle(img, (16,16), 8, c, t)
+cv2.circle(img, (48,16), 8, c, t)
+cv2.circle(img, (16,48), 8, c, t)
+cv2.circle(img, (48,48), 8, c, t)
+save('multi_four_circles', img)
 
-# 7. Grid of Circles (Neuro-Symbolic Logic Test)
 img = blank()
-for i in range(3):
-    for j in range(3):
-        x = 15 + j * 15
-        y = 15 + i * 15
-        cv2.circle(img, (x, y), 4, color, thickness)
-cv2.imwrite('just_test/grid_of_circles.png', cv2.GaussianBlur(img, (3,3), 0))
+cv2.circle(img, (20,20), 8, c, t)
+cv2.rectangle(img, (36,12), (58,32), c, t)
+cv2.line(img, (8,44), (30,58), c, t)
+cv2.ellipse(img, (48,50), (10,5), 0, 0, 360, c, t)
+save('multi_4shapes', img)
 
-# 8. Multiple Miscellaneous Shapes in ONE Picture
 img = blank()
-cv2.circle(img, (20, 20), 8, color, thickness)
-cv2.rectangle(img, (40, 10), (55, 25), color, thickness)
-cv2.line(img, (10, 40), (25, 55), color, thickness)
-cv2.ellipse(img, (45, 45), (10, 5), 30, 0, 360, color, thickness)
-cv2.circle(img, (32, 32), 4, color, thickness)
-cv2.imwrite('just_test/multiple_shapes.png', cv2.GaussianBlur(img, (3,3), 0))
+cv2.circle(img, (15,15), 7, c, t)
+cv2.circle(img, (32,15), 7, c, t)
+cv2.circle(img, (49,15), 7, c, t)
+cv2.circle(img, (15,32), 7, c, t)
+cv2.circle(img, (32,32), 7, c, t)
+cv2.circle(img, (49,32), 7, c, t)
+cv2.circle(img, (15,49), 7, c, t)
+cv2.circle(img, (32,49), 7, c, t)
+cv2.circle(img, (49,49), 7, c, t)
+save('grid_3x3_circles', img)
 
-print("Testing Images explicitly generated in: just_test folder!")
+img = blank()
+for i in range(4):
+    x = 10 + i*14
+    cv2.circle(img, (x, 32), 5, c, t)
+save('array_4circles_row', img)
+
+img = blank()
+cv2.rectangle(img, (5,5), (28,28), c, t)
+cv2.rectangle(img, (34,5), (58,28), c, t)
+cv2.rectangle(img, (5,34), (28,58), c, t)
+cv2.rectangle(img, (34,34), (58,58), c, t)
+save('grid_2x2_rectangles', img)
+
+print('All test images created in just_test/')

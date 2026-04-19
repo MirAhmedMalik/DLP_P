@@ -1,213 +1,246 @@
 import streamlit as st
 import numpy as np
 import cv2
+import io
 import torch
 from PIL import Image
 from predict import InferenceEngine
 
-# --- Streamlit Premium Setup ---
+# ── Page Config ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Shape to Code AI",
+    page_title="Shape → Code",
     layout="wide",
-    page_icon="✨",
-    initial_sidebar_state="expanded"
+    page_icon="🔷"
 )
 
-# --- Custom Premium CSS ---
+# ── CSS ─────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* Main Background & Fonts */
-    .stApp {
-        background-color: #0b0f19;
-        font-family: 'Inter', sans-serif;
-    }
-    
-    /* Headers */
-    h1, h2, h3 {
-        color: #f8fafc;
-        font-weight: 700 !important;
-    }
-    h1 {
-        background: -webkit-linear-gradient(45deg, #FF6B6B, #3B82F6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        font-size: 3.5rem !important;
-        margin-bottom: 0rem !important;
-        padding-top: 1rem;
-    }
-    
-    /* Styled Button */
-    .stButton>button {
-        width: 100%;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
-        color: white;
-        font-weight: 600;
-        font-size: 1.1rem;
-        padding: 0.6rem 0;
-        border: none;
-        box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39);
-        transition: all 0.3s ease;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
-    }
-    
-    /* Code block styling */
-    code {
-        color: #38bdf8 !important;
-        background-color: #0f172a !important;
-        border-radius: 8px !important;
-        font-size: 1rem !important;
-    }
-    
-    /* Subtitles */
-    .subtitle {
-        text-align: center;
-        color: #94a3b8;
-        font-size: 1.2rem;
-        margin-bottom: 3rem;
-    }
-    
-    /* Radio styling hiding standard components */
-    .stRadio > div {
-        background: #1e293b;
-        padding: 10px 20px;
-        border-radius: 10px;
-        border: 1px solid #334155;
-    }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, .stApp {
+    background-color: #0d1117;
+    font-family: 'Inter', sans-serif;
+    color: #e6edf3;
+}
+
+/* Header */
+.app-header {
+    text-align: center;
+    padding: 2.5rem 0 1rem 0;
+}
+.app-header h1 {
+    font-size: 2.6rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #58a6ff, #79c0ff, #a5d6ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+}
+.app-header p {
+    color: #7d8590;
+    font-size: 1rem;
+    margin-top: 0.4rem;
+}
+
+/* Section label */
+.section-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #7d8590;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+}
+
+/* Cards */
+.card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1.4rem;
+    margin-bottom: 1rem;
+}
+
+/* Result image label */
+.img-label {
+    font-size: 0.8rem;
+    color: #7d8590;
+    text-align: center;
+    margin-top: 0.3rem;
+}
+
+/* Generate button */
+.stButton > button {
+    background: #238636;
+    color: #fff;
+    border: 1px solid #2ea043;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 0.5rem 1.4rem;
+    width: 100%;
+    transition: background 0.2s;
+}
+.stButton > button:hover {
+    background: #2ea043;
+}
+
+/* Confidence badge */
+.conf-badge {
+    display: inline-block;
+    background: #1f6feb33;
+    border: 1px solid #1f6feb;
+    color: #58a6ff;
+    border-radius: 20px;
+    padding: 0.2rem 0.8rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+}
+
+/* Code block */
+.stCodeBlock {
+    border-radius: 8px !important;
+}
+
+/* Divider */
+hr {
+    border-color: #21262d;
+}
+
+/* Radio */
+div[data-testid="stRadio"] > div {
+    gap: 0.5rem;
+}
+
+/* Uploader */
+section[data-testid="stFileUploadDropzone"] {
+    background: #161b22;
+    border: 1px dashed #30363d;
+    border-radius: 8px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# Option for drawing canvas (Fallback check)
+# ── Canvas import ────────────────────────────────────────────────────────────
 try:
     from streamlit_drawable_canvas import st_canvas
-    CANVAS_AVAILABLE = True
+    CANVAS_OK = True
 except ImportError:
-    CANVAS_AVAILABLE = False
+    CANVAS_OK = False
 
-# --- App Header ---
-st.markdown("<h1>✨ Smart Shape-to-Code Decoder</h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitle'>Magically turn your hand-drawn sketches into executable logical algorithms and patterns.</p>", unsafe_allow_html=True)
+# ── Header ───────────────────────────────────────────────────────────────────
+st.markdown("""
+<div class="app-header">
+    <h1>🔷 Shape → Code</h1>
+    <p>Upload or draw a sketch — get executable code that recreates it.</p>
+</div>
+""", unsafe_allow_html=True)
 
-# Cache the model to memory
-@st.cache_resource
+st.divider()
+
+# ── Load engine ──────────────────────────────────────────────────────────────
+@st.cache_resource(show_spinner="Loading engine…")
 def load_engine():
-    return InferenceEngine(model_path="best_model.pth")
+    return InferenceEngine(img_size=64, output_size=256)
 
 try:
     engine = load_engine()
 except Exception as e:
-    st.error(f"Error loading Inference model component: {e}")
+    st.error(f"Engine load failed: {e}")
     st.stop()
 
-# --- Layout: Main Two Columns ---
-left_col, center_gap, right_col = st.columns([1.1, 0.1, 1.2])
+# ── Layout ───────────────────────────────────────────────────────────────────
+left, gap, right = st.columns([1, 0.06, 1.3])
+raw_img = None
 
-raw_img_disp = None
+# ── LEFT: Input ───────────────────────────────────────────────────────────────
+with left:
+    st.markdown('<div class="section-label">Input</div>', unsafe_allow_html=True)
+    mode = st.radio("", ["Draw on canvas", "Upload image"], horizontal=True, label_visibility="collapsed")
 
-with left_col:
-    st.markdown("### 📥 1. Select Input Source")
-    st.info("Choose to upload a pre-drawn image or sketch one dynamically on the blackboard.")
-    
-    option = st.radio("Input Method:", ("🖌️ Draw on Canvas", "📂 Upload Image"), horizontal=True)
-
-    if option == "📂 Upload Image":
-        uploaded_file = st.file_uploader("Drop your image file here...", type=["png", "jpg", "jpeg"])
-        if uploaded_file is not None:
+    if mode == "Upload image":
+        f = st.file_uploader("", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
+        if f:
             try:
-                image = Image.open(uploaded_file).convert('L')
-                raw_img_disp = np.array(image)
-                st.success("File uploaded successfully!")
-            except Exception as e:
-                st.error(f"Invalid format: {e}")
+                raw_img = np.array(Image.open(f).convert("L"))
+                st.image(raw_img, use_container_width=True, clamp=True, caption="Uploaded image")
+            except Exception as ex:
+                st.error(f"Cannot read file: {ex}")
 
-    elif option == "🖌️ Draw on Canvas":
-        if not CANVAS_AVAILABLE:
-            st.warning("Canvas tool not found. Run: `pip install streamlit-drawable-canvas`")
+    else:
+        if not CANVAS_OK:
+            st.warning("Run `pip install streamlit-drawable-canvas` to enable drawing.")
         else:
-            st.caption("Draw pure geometries (circles, grids, lines) on the board below:")
-            
-            with st.container():
-                canvas_result = st_canvas(
-                    fill_color="rgba(255, 255, 255, 0)",
-                    stroke_width=2,
-                    stroke_color="#FFFFFF",
-                    background_color="#000000",
-                    update_streamlit=True,
-                    height=300,
-                    width=300,
-                    drawing_mode="freedraw",
-                    key="draw_canvas",
-                )
-                
-            if canvas_result.image_data is not None:
-                img_rgba = canvas_result.image_data
-                raw_img_disp = cv2.cvtColor(np.uint8(img_rgba), cv2.COLOR_RGBA2GRAY)
-                
-                if np.sum(raw_img_disp) > 0:
-                    import io
-                    pil_img = Image.fromarray(raw_img_disp)
+            result = st_canvas(
+                stroke_width=3,
+                stroke_color="#FFFFFF",
+                background_color="#000000",
+                update_streamlit=True,
+                height=280,
+                width=280,
+                drawing_mode="freedraw",
+                key="canvas",
+            )
+            if result.image_data is not None:
+                raw_img = cv2.cvtColor(np.uint8(result.image_data), cv2.COLOR_RGBA2GRAY)
+                if np.sum(raw_img) > 0:
                     buf = io.BytesIO()
-                    pil_img.save(buf, format="PNG")
-                    st.download_button(
-                        label="💾 Download Sketch (PNG)",
-                        data=buf.getvalue(),
-                        file_name="my_shape_drawing.png",
-                        mime="image/png",
-                        help="Save your current drawing!"
-                    )
+                    Image.fromarray(raw_img).save(buf, format="PNG")
+                    st.download_button("⬇ Download sketch", buf.getvalue(),
+                                       "sketch.png", "image/png", use_container_width=True)
 
-with right_col:
-    st.markdown("### 🚀 2. Neural Execution")
-    st.info("Click generate to instantly extract logic constraints.")
-    
-    if st.button("Generate Smart Code ✨"):
-        if raw_img_disp is None or np.sum(raw_img_disp) == 0:
-            st.error("⚠️ Please draw something or upload a file first!")
+# ── RIGHT: Results ────────────────────────────────────────────────────────────
+with right:
+    st.markdown('<div class="section-label">Output</div>', unsafe_allow_html=True)
+
+    if st.button("▶ Generate Code", use_container_width=True):
+        if raw_img is None or np.sum(raw_img) == 0:
+            st.warning("Please draw or upload an image first.")
         else:
-            with st.spinner("🔍 Scanning geometric clusters and resolving patterns..."):
+            with st.spinner("Analysing shapes…"):
                 try:
-                    # Safe Resizing Preserving Anti-Aliasing
-                    resized_img = cv2.resize(raw_img_disp, (engine.img_size, engine.img_size))
-                    
-                    # Auto-Invert for White backgrounds
-                    if np.mean(resized_img) > 127:
-                        resized_img = cv2.bitwise_not(resized_img)
-                        
-                    # Contrast Stretching removing gray smog safely
-                    resized_img = cv2.normalize(resized_img, None, 0, 255, cv2.NORM_MINMAX)
-                    
-                    # Normalization
-                    img_normalized = resized_img.astype(np.float32) / 255.0
-                    tensor_input = torch.tensor(img_normalized).unsqueeze(0).unsqueeze(0).to('cpu')
-                    
-                    # Core Parsing
-                    seq, conf = engine.beam_search(tensor_input)
-                    commands = engine.post_process(seq)
-                    recon_img = engine.reconstruct_image(commands)
-                    
-                    # Fancy Successful Notification Popups
-                    st.toast('Pattern matching completely successful!', icon='✅')
-                    st.balloons()
-                    
+                    # ── Preprocessing ──────────────────────────────────────
+                    proc = cv2.resize(raw_img, (engine.img_size, engine.img_size))
+                    # Auto-invert: model expects white-on-black
+                    if np.mean(proc) > 127:
+                        proc = cv2.bitwise_not(proc)
+                    # Clean threshold — removes background noise
+                    _, proc = cv2.threshold(proc, 50, 255, cv2.THRESH_BINARY)
+
+                    tensor = torch.tensor(proc / 255.0).float().unsqueeze(0).unsqueeze(0)
+
+                    # ── Inference ──────────────────────────────────────────
+                    raw_out, conf = engine.beam_search(tensor)
+                    commands = engine.post_process(raw_out)
+                    recon = engine.reconstruct_image(commands)
+
+                    # ── Display ────────────────────────────────────────────
+                    st.markdown(f'<span class="conf-badge">✓ {len(commands)} shape(s) detected — Confidence: {conf*100:.0f}%</span>',
+                                unsafe_allow_html=True)
+
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.image(cv2.resize(proc, (256, 256), interpolation=cv2.INTER_NEAREST),
+                                 use_container_width=True, clamp=True)
+                        st.markdown('<div class="img-label">Processed input</div>', unsafe_allow_html=True)
+                    with c2:
+                        st.image(recon, use_container_width=True, clamp=True)
+                        st.markdown('<div class="img-label">Reconstructed output</div>', unsafe_allow_html=True)
+
                     st.divider()
-                    
-                    # Verification Sub-Columns
-                    v_col1, v_col2 = st.columns(2)
-                    with v_col1:
-                        st.image(resized_img, clamp=True, use_column_width=True, caption="🧠 Processed Backend View")
-                    with v_col2:
-                        st.image(recon_img, clamp=True, use_column_width=True, caption=f"🎯 Reconstructed Extract (Conf: {conf*100:.1f}%)")
-                    
-                    st.markdown("#### 📜 Compiled Execution Logic")
-                    
+
+                    # ── Code ───────────────────────────────────────────────
+                    st.markdown('<div class="section-label">Generated Code</div>', unsafe_allow_html=True)
                     from synthesizer import CodeSynthesizer
-                    synth = CodeSynthesizer()
-                    smart_code = synth.generate_python_code(commands)
-                    st.code(smart_code, language="python")
-                    
-                except Exception as e:
-                    st.error(f"Execution Error during extraction logic: {e}")
+                    code = CodeSynthesizer().generate_python_code(commands)
+                    st.code(code, language="python")
+
+                    # ── Plain command list ─────────────────────────────────
+                    with st.expander("Raw detected commands"):
+                        for cmd in commands:
+                            st.text(" ".join(str(v) for v in cmd))
+
+                except Exception as ex:
+                    st.error(f"Error during analysis: {ex}")

@@ -8,7 +8,7 @@ from model import ImageToProgramModel
 BATCH_SIZE = 16          
 EPOCHS = 35             
 LEARNING_RATE = 1e-3
-DEVICE = torch.device('cpu') 
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
 
 def train():
     print("Maximum Accuracy keliye Large Dataset generate kia ja raha hai (15000 samples)...")
